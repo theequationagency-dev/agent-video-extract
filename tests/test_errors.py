@@ -179,6 +179,32 @@ class PolicyTests(unittest.TestCase):
                          self.policy.max_attempts(vme.Category.RATE_LIMIT))
 
 
+class ExtractorArgsTests(unittest.TestCase):
+    def test_single_arg_with_multiple_values(self):
+        self.assertEqual(vme.parse_extractor_args(["youtube:player_client=web_safari,mweb"]),
+                         {"youtube": {"player_client": ["web_safari", "mweb"]}})
+
+    def test_several_args_and_several_extractors(self):
+        self.assertEqual(
+            vme.parse_extractor_args(["youtube:player_client=tv;formats=incomplete",
+                                      "generic:impersonate=chrome"]),
+            {"youtube": {"player_client": ["tv"], "formats": ["incomplete"]},
+             "generic": {"impersonate": ["chrome"]}})
+
+    def test_key_is_lowercased_and_values_trimmed(self):
+        self.assertEqual(vme.parse_extractor_args(["YouTube: player_client = tv , mweb "]),
+                         {"youtube": {"player_client": ["tv", "mweb"]}})
+
+    def test_empty_input(self):
+        self.assertEqual(vme.parse_extractor_args(None), {})
+        self.assertEqual(vme.parse_extractor_args([]), {})
+
+    def test_malformed_values_are_rejected(self):
+        for bad in ["youtube", "youtube:", ":player_client=tv", ""]:
+            with self.assertRaises(ValueError, msg=bad):
+                vme.parse_extractor_args([bad])
+
+
 class CookieArgTests(unittest.TestCase):
     def test_browser_only(self):
         self.assertEqual(vme.parse_cookies_from_browser("firefox"),

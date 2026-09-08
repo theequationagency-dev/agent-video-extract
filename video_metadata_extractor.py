@@ -27,7 +27,7 @@ import uuid
 from datetime import datetime, timezone
 
 TOOL_NAME = "video-metadata-extractor"
-TOOL_VERSION = "1.0.0"
+TOOL_VERSION = "1.1.0"
 
 DEFAULT_INCIDENT_LOG = "incidents.jsonl"
 DEFAULT_LANGUAGES = ("en",)
@@ -679,8 +679,9 @@ class Config:
                  playlist_items=None, max_entries=None, retries=4,
                  blocked_retries=1, base_backoff=2.0, max_backoff=300.0,
                  sleep_interval=0.0, socket_timeout=30.0, cookies=None,
-                 cookies_from_browser=None, proxy=None, incident_log=DEFAULT_INCIDENT_LOG,
-                 write_incidents=True, verbose=False):
+                 cookies_from_browser=None, proxy=None, extractor_args=None,
+                 incident_log=DEFAULT_INCIDENT_LOG, write_incidents=True,
+                 verbose=False):
         self.languages = tuple(languages) or DEFAULT_LANGUAGES
         self.any_language = bool(any_language)
         self.subtitles = bool(subtitles)
@@ -693,6 +694,9 @@ class Config:
         self.cookies = cookies
         self.cookies_from_browser = cookies_from_browser
         self.proxy = proxy
+        self.extractor_args = (parse_extractor_args(extractor_args)
+                               if isinstance(extractor_args, (list, tuple)) else
+                               (extractor_args or None))
         self.incident_log = incident_log
         self.write_incidents = bool(write_incidents)
         self.verbose = bool(verbose)
@@ -743,6 +747,29 @@ class _SilentLogger:
         pass
 
 
+def parse_extractor_args(values):
+    """yt-dlp's ``KEY:ARG=VAL1,VAL2;ARG2=VAL`` syntax -> the nested dict it wants.
+
+    >>> parse_extractor_args(["youtube:player_client=web_safari,mweb"])
+    {'youtube': {'player_client': ['web_safari', 'mweb']}}
+    """
+    parsed = {}
+    for value in values or []:
+        key, separator, rest = str(value).partition(":")
+        key = key.strip().lower()
+        if not key or not separator or not rest.strip():
+            raise ValueError("invalid --extractor-args value: %r "
+                             "(expected KEY:ARG=VALUE)" % value)
+        args = parsed.setdefault(key, {})
+        for chunk in rest.split(";"):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            name, _, raw = chunk.partition("=")
+            args[name.strip()] = [item.strip() for item in raw.split(",") if item.strip()]
+    return parsed
+
+
 def build_ydl_options(config, flat=False):
     options = {
         "logger": _SilentLogger(),
@@ -751,6 +778,11 @@ def build_ydl_options(config, flat=False):
         "noprogress": True,
         "skip_download": True,
         "ignoreerrors": False,
+        # This tool never downloads, so a video whose formats cannot be
+        # resolved is still a perfectly good metadata result. Without this,
+        # yt-dlp raises "Requested format is not available" and throws away
+        # metadata it already fetched.
+        "ignore_no_formats_error": True,
         "writesubtitles": False,
         "writeautomaticsub": False,
         # Retries are this tool's job: yt-dlp's own loops would hide the
@@ -771,6 +803,8 @@ def build_ydl_options(config, flat=False):
         options["cookiesfrombrowser"] = parse_cookies_from_browser(config.cookies_from_browser)
     if config.proxy:
         options["proxy"] = config.proxy
+    if config.extractor_args:
+        options["extractor_args"] = config.extractor_args
     if config.sleep_interval:
         options["sleep_interval_requests"] = config.sleep_interval
     return options
@@ -1183,6 +1217,10 @@ def build_parser():
     access.add_argument("--cookies-from-browser", metavar="BROWSER",
                         help="BROWSER[+KEYRING][:PROFILE][::CONTAINER], e.g. firefox")
     access.add_argument("--proxy", metavar="URL", help="HTTP/SOCKS proxy URL")
+    access.add_argument("--extractor-args", action="append", metavar="KEY:ARGS",
+                        help="passed to yt-dlp, repeatable, e.g. "
+                             "youtube:player_client=web_safari,mweb (routes around "
+                             "YouTube bot checks without cookies)")
 
     incidents = parser.add_argument_group("incident log")
     incidents.add_argument("--incident-log", default=DEFAULT_INCIDENT_LOG, metavar="PATH",
@@ -1214,6 +1252,7 @@ def config_from_args(args):
         cookies=args.cookies,
         cookies_from_browser=args.cookies_from_browser,
         proxy=args.proxy,
+        extractor_args=args.extractor_args,
         incident_log=args.incident_log,
         write_incidents=not args.no_incident_log,
         verbose=args.verbose,

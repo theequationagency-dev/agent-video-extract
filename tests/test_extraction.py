@@ -350,6 +350,44 @@ class CliTests(unittest.TestCase):
         self.assertEqual(box[0].options["proxy"], "socks5://127.0.0.1:9050")
         self.assertEqual(box[0].options["retries"], 0)
 
+    def test_metadata_only_extraction_ignores_format_selection(self):
+        # A video whose formats cannot be resolved is still a good metadata
+        # result: this tool downloads nothing.
+        box = []
+        args = dict(DEFAULT_FACTORY_ARGS)
+        stderr, sys.stderr = sys.stderr, io.StringIO()
+        try:
+            vme.main([VIDEO_URL, "-o", self.output, "--no-incident-log"],
+                     ydl_factory=factory(box=box, **args))
+        finally:
+            sys.stderr = stderr
+        self.assertTrue(box[0].options["ignore_no_formats_error"])
+        self.assertTrue(box[0].options["skip_download"])
+
+    def test_extractor_args_reach_yt_dlp(self):
+        box = []
+        args = dict(DEFAULT_FACTORY_ARGS)
+        stderr, sys.stderr = sys.stderr, io.StringIO()
+        try:
+            vme.main([VIDEO_URL, "-o", self.output, "--no-incident-log",
+                      "--extractor-args", "youtube:player_client=web_safari,mweb"],
+                     ydl_factory=factory(box=box, **args))
+        finally:
+            sys.stderr = stderr
+        self.assertEqual(box[0].options["extractor_args"],
+                         {"youtube": {"player_client": ["web_safari", "mweb"]}})
+
+    def test_no_extractor_args_means_no_key(self):
+        box = []
+        args = dict(DEFAULT_FACTORY_ARGS)
+        stderr, sys.stderr = sys.stderr, io.StringIO()
+        try:
+            vme.main([VIDEO_URL, "-o", self.output, "--no-incident-log"],
+                     ydl_factory=factory(box=box, **args))
+        finally:
+            sys.stderr = stderr
+        self.assertNotIn("extractor_args", box[0].options)
+
     def test_cookies_from_browser_is_translated(self):
         box = []
         args = dict(DEFAULT_FACTORY_ARGS)

@@ -97,8 +97,8 @@ And `out.json` is exactly this:
   "timestamps": [],
   "transcript": "",
   "license": "http://creativecommons.org/licenses/publicdomain/",
-  "extracted_at": "2026-09-08T01:34:30Z",
-  "tool_version": "1.0.0",
+  "extracted_at": "2026-09-08T02:53:12Z",
+  "tool_version": "1.1.0",
   "video_id": "wise_use_of_credit",
   "webpage_url": "https://archive.org/details/wise_use_of_credit",
   "description": "0646 PA8673 Wise Use of Credit, The",
@@ -195,7 +195,11 @@ video-metadata-extractor URL --lang es,en --any-lang
 # Metadata only: no caption download, much faster
 video-metadata-extractor URL --no-subs
 
-# Signed-in access for age-gated videos or bot checks
+# YouTube from a server, VPS or CI runner, where the bot check usually bites.
+# These client APIs often get through with no login at all.
+video-metadata-extractor URL --extractor-args "youtube:player_client=web_safari,mweb"
+
+# Signed-in access for age-gated videos, or when the above is not enough
 video-metadata-extractor URL --cookies-from-browser firefox
 video-metadata-extractor URL --cookies cookies.txt
 
@@ -243,6 +247,7 @@ up with input *n*.
 | `--cookies PATH` | — | Netscape-format cookies file, passed through to yt-dlp. |
 | `--cookies-from-browser BROWSER` | — | Load cookies from a local browser: `BROWSER[+KEYRING][:PROFILE][::CONTAINER]`, e.g. `firefox` or `chrome:Default`. |
 | `--proxy URL` | — | HTTP or SOCKS proxy, e.g. `socks5://127.0.0.1:9050`. |
+| `--extractor-args KEY:ARGS` | — | Passed straight to yt-dlp; repeatable. `youtube:player_client=web_safari,mweb` often gets past YouTube bot checks without cookies. |
 | `--incident-log PATH` | `incidents.jsonl` | Where to append rate-limit / blocked / transient events. |
 | `--no-incident-log` | off | Do not write an incident log at all. |
 | `--version` | — | Print the tool version and exit. |
@@ -264,7 +269,7 @@ Every record has every key. Missing values are `null` (or `[]` / `""`), never ab
 | `timestamps` | object[] | `{ "start": float, "end": float, "text": string }`, seconds from the start. |
 | `transcript` | string | The whole transcript as plain text, de-duplicated. |
 | `license` | string | Licence name or URL when the site reports one. |
-| `extracted_at` | string | ISO 8601 UTC, e.g. `2026-09-08T01:34:30Z`. |
+| `extracted_at` | string | ISO 8601 UTC, e.g. `2026-09-08T02:53:12Z`. |
 | `tool_version` | string | Version of this tool that produced the record. |
 
 **Additive fields — extra context for agents:**
@@ -353,12 +358,13 @@ Every `rate_limit`, `blocked` and `transient` event appends one line to
 `incidents.jsonl`:
 
 ```json
-{"timestamp": "2026-09-08T01:34:45Z", "tool": "video-metadata-extractor", "tool_version": "1.0.0", "incident_id": "59cbb9e9fff8", "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ", "stage": "metadata", "category": "blocked", "http_status": null, "error": "[youtube] aqz-KE-bpKQ: Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies for the authentication.", "attempt": 1, "max_attempts": 2, "retry_in_seconds": 0.065, "resolved": false}
-{"timestamp": "2026-09-08T01:34:46Z", "tool": "video-metadata-extractor", "tool_version": "1.0.0", "incident_id": "59cbb9e9fff8", "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ", "stage": "metadata", "category": "blocked", "http_status": null, "error": "[youtube] aqz-KE-bpKQ: Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies for the authentication.", "attempt": 2, "max_attempts": 2, "retry_in_seconds": null, "resolved": false}
+{"timestamp": "2026-09-08T02:54:09Z", "tool": "video-metadata-extractor", "tool_version": "1.1.0", "incident_id": "8c1de7528c77", "url": "https://vimeo.com/1084537", "stage": "metadata", "category": "blocked", "http_status": null, "error": "[vimeo] 1084537: The web client only works when logged-in. Use --cookies, --cookies-from-browser, --username and --password, --netrc-cmd, or --netrc (vimeo) to provide account credentials.", "attempt": 1, "max_attempts": 2, "retry_in_seconds": 0.729, "resolved": false}
+{"timestamp": "2026-09-08T02:54:10Z", "tool": "video-metadata-extractor", "tool_version": "1.1.0", "incident_id": "8c1de7528c77", "url": "https://vimeo.com/1084537", "stage": "metadata", "category": "blocked", "http_status": null, "error": "[vimeo] 1084537: The web client only works when logged-in. Use --cookies, --cookies-from-browser, --username and --password, --netrc-cmd, or --netrc (vimeo) to provide account credentials.", "attempt": 2, "max_attempts": 2, "retry_in_seconds": null, "resolved": false}
 ```
 
-(That is a real log from running this tool against YouTube from a datacenter IP with no
-cookies. The message is truncated here for width; the log keeps it in full.)
+(A real log, captured by running `video-metadata-extractor https://vimeo.com/1084537`.
+Two attempts, one `incident_id`, no resolution line — so this URL belongs on the
+failure list. Only the trailing help URL is trimmed here for page width.)
 
 The point of the log is the `resolved` field. **When a retry finally succeeds, the tool
 writes one more line for the same `incident_id` with `"resolved": true`.** So:
@@ -384,12 +390,13 @@ output record's `error` object and in the exit code, not in the log.
 
 | Symptom | What is happening | Fix |
 | --- | --- | --- |
-| `Sign in to confirm you're not a bot` | YouTube's bot check. Common from datacenter IPs, VPNs and CI runners. Classified `blocked`, retried once. | `--cookies-from-browser firefox` (or `chrome`, `edge`, `safari`), or export a cookies file and pass `--cookies cookies.txt`. Run from a residential IP where you can. |
+| `Sign in to confirm you're not a bot` | YouTube's bot check, common from datacenter IPs, VPNs and CI runners. Since 1.1.0 this rarely stops a run outright — yt-dlp falls through to a client that still answers — but the record comes back thinner. | **No login needed:** `--extractor-args "youtube:player_client=web_safari,mweb"`. On a bot-checked network the default clients returned a record with `duration_seconds: null` and `categories: []`; the same video with that flag returned `3285` and `["Education"]`. If it is still refused, use `--cookies-from-browser firefox` (or `chrome`, `edge`, `safari`) or `--cookies cookies.txt`. |
 | `HTTP Error 429: Too Many Requests` | You are being throttled. Classified `rate_limit` and retried with backoff. | Add `--sleep-interval 3` and raise `--retries`. For big batches: `--base-backoff 5 --max-backoff 900`. Slower is faster than banned. |
-| `transcript` is `""` and `transcript_source` is `null` | The video has no caption track in your requested language — or none at all. Not an error. | Add `--any-lang`, or widen with `--lang en,es,fr`. Check `--no-auto-subs` is not on if machine captions are acceptable. |
+| `transcript` is `""` and `transcript_source` is `null` | The video has no caption track in your requested language — or none at all. Not an error. Livestream recordings frequently have none, because YouTube often never auto-captions them. | Add `--any-lang`, or widen with `--lang en,es,fr`. Check `--no-auto-subs` is not on if machine captions are acceptable. If every language comes back empty, the video simply has no captions. |
 | `CERTIFICATE_VERIFY_FAILED` | Your Python cannot verify TLS certificates. Classified `fatal`, because retrying will not help. | macOS: run `/Applications/Python 3.x/Install Certificates.command`. Elsewhere: `pip install --upgrade certifi`, and check any corporate proxy's CA bundle is installed. |
 | `Private video` / `Video unavailable` | The video is gone or restricted. Classified `fatal`, never retried. | Nothing to do — check the URL. In a batch the record's `error` says so and the run continues. |
 | `members-only` / age-gated | A login wall. Classified `blocked`. | Pass cookies from a signed-in browser profile: `--cookies-from-browser chrome:Default`. |
+| `Requested format is not available` | A yt-dlp format-selection failure. This tool sets `ignore_no_formats_error`, so a metadata-only run never fails on it. | If you hit it, you are on a release before 1.1.0 — upgrade. |
 | Everything fails immediately | Usually a stale `yt-dlp`. Sites change; yt-dlp ships fixes weekly. | `pip install --upgrade yt-dlp` |
 | Batch is slow | Every URL is a fresh metadata fetch plus a caption download. | `--no-subs` if you only need metadata; drop `--sleep-interval` if the site tolerates it. |
 
