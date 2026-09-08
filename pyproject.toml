@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video-metadata-extractor"
+version = "1.0.0"
+description = "Pull video metadata and transcripts from YouTube and any yt-dlp-supported site into one agent-friendly JSON file."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Guilty Trex" }]
+maintainers = [{ name = "Guilty Trex" }]
+keywords = [
+    "yt-dlp", "youtube", "transcript", "subtitles", "metadata",
+    "ai-agents", "llm", "json", "cli", "rate-limiting",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Utilities",
+]
+dependencies = ["yt-dlp>=2024.4.9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/theequationagency-dev/agent-video-extract"
+Repository = "https://github.com/theequationagency-dev/agent-video-extract"
+Issues = "https://github.com/theequationagency-dev/agent-video-extract/issues"
+
+[project.scripts]
+video-metadata-extractor = "video_metadata_extractor:main"
+
+[tool.setuptools]
+py-modules = ["video_metadata_extractor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
