@@ -6,3 +6,6 @@
 repository:
   description: "Turn any video URL into one agent-friendly JSON file: metadata, chapters and a clean, de-duplicated transcript. Built on yt-dlp, with rate-limit classification, jittered backoff and an incident log. No account, no API key."
   topics: python, yt-dlp, youtube, transcript, subtitles, metadata, cli, json, ai-agents, llm-tools, rate-limiting, webvtt, video-processing, open-source
+
+# Editing this file and pushing to the default branch re-applies the values
+# above. Removing a topic here removes it from the repository.
