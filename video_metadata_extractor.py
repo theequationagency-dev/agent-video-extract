@@ -520,6 +520,9 @@ class IncidentLogger:
 
     One line per attempt, plus a ``resolved: true`` line when a retry finally
     succeeds. Incidents with no resolution line are the real failure list.
+
+    Fatal failures are deliberately absent: they cannot resolve, and they are
+    reported in the output record's ``error`` object instead.
     """
 
     FIELDS = ("timestamp", "tool", "tool_version", "incident_id", "url", "stage",
@@ -636,14 +639,18 @@ def run_with_retries(operation, url, stage, policy, incidents, sleeper=time.slee
             retry_in = None
             if will_retry:
                 retry_in = policy.delay(attempt, extract_retry_after(exc), jitter)
-            if incident_id is None:
-                incident_id = new_incident_id()
-            last_category, last_status = category, status
-            last_message, last_max_attempts = message, max_attempts
-            incidents.log(url=url, stage=stage, category=category, attempt=attempt,
-                          max_attempts=max_attempts, incident_id=incident_id,
-                          error=message, http_status=status,
-                          retry_in_seconds=retry_in, resolved=False)
+            # Fatal failures are not incidents: nothing is going to change, and
+            # they are already visible in the record's error object and the exit
+            # code. The log is for rate_limit / blocked / transient only.
+            if category != Category.FATAL:
+                if incident_id is None:
+                    incident_id = new_incident_id()
+                last_category, last_status = category, status
+                last_message, last_max_attempts = message, max_attempts
+                incidents.log(url=url, stage=stage, category=category, attempt=attempt,
+                              max_attempts=max_attempts, incident_id=incident_id,
+                              error=message, http_status=status,
+                              retry_in_seconds=retry_in, resolved=False)
             if not will_retry:
                 raise ExtractionError(message, category, status, incident_id,
                                       attempt, stage)
@@ -1285,7 +1292,8 @@ def main(argv=None, ydl_factory=default_ydl_factory):
             handle.close()
 
     if failures:
-        where = ("; see %s" % config.incident_log) if config.write_incidents else ""
+        where = ("; see %s" % config.incident_log
+                 if config.write_incidents and incidents.records else "")
         log("%d of %d failed%s" % (failures, len(records), where))
     return 1 if failures else 0
 

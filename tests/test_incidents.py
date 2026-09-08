@@ -119,17 +119,29 @@ class RetryLoopTests(unittest.TestCase):
         self.assertEqual(caught.exception.attempts, 5)
         self.assertEqual(caught.exception.incident_id, lines[0]["incident_id"])
 
-    def test_fatal_is_never_retried(self):
+    def test_fatal_is_never_retried_and_never_logged(self):
         operation = failing(RuntimeError("ERROR: Private video. Sign in if you've been granted access"))
         with self.assertRaises(vme.ExtractionError) as caught:
             self.run_op(operation)
-        lines = self.incidents.lines()
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(lines[0]["attempt"], 1)
-        self.assertEqual(lines[0]["max_attempts"], 1)
-        self.assertIsNone(lines[0]["retry_in_seconds"])
-        self.assertEqual(caught.exception.category, vme.Category.FATAL)
+        # A fatal failure cannot resolve, so it is not an incident. It surfaces
+        # in the record's error object and the exit code instead.
+        self.assertEqual(self.incidents.lines(), [])
         self.assertEqual(self.delays, [])
+        self.assertEqual(caught.exception.category, vme.Category.FATAL)
+        self.assertEqual(caught.exception.attempts, 1)
+        self.assertIsNone(caught.exception.incident_id)
+
+    def test_transient_then_fatal_leaves_an_unresolved_incident(self):
+        operation = failing(FakeHTTPError(503),
+                            RuntimeError("ERROR: Video unavailable, it has been removed"))
+        with self.assertRaises(vme.ExtractionError) as caught:
+            self.run_op(operation)
+        lines = self.incidents.lines()
+        self.assertEqual(len(lines), 1)                       # only the transient one
+        self.assertEqual(lines[0]["category"], vme.Category.TRANSIENT)
+        self.assertFalse(lines[0]["resolved"])
+        self.assertEqual(caught.exception.category, vme.Category.FATAL)
+        self.assertEqual(caught.exception.incident_id, lines[0]["incident_id"])
 
     def test_bot_check_gets_a_short_budget(self):
         operation = failing(*[RuntimeError("Sign in to confirm you're not a bot")

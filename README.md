@@ -285,7 +285,7 @@ Every record has every key. Missing values are `null` (or `[]` / `""`), never ab
 | `chapters` | object[] | `{ "start": float, "end": float, "title": string }`. |
 | `transcript_source` | string | `"manual"`, `"automatic"` or `null`. |
 | `transcript_language` | string | The caption track's actual tag, e.g. `en-US`. |
-| `error` | object | `null` on success. On failure: `category`, `message`, `http_status`, `incident_id`, `attempts`, `stage`. |
+| `error` | object | `null` on success. On failure: `category`, `message`, `http_status`, `incident_id` (`null` for fatal failures, which are never logged as incidents), `attempts`, `stage`. |
 
 A failed URL in a batch produces the same shape with `error` filled in and the content
 fields empty, so `if record["error"] is None:` is the only check an agent needs.
