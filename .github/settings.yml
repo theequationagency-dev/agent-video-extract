@@ -1,0 +1,8 @@
+# Repository metadata, applied by the Settings GitHub App
+# (https://github.com/apps/settings) on pushes to the default branch.
+#
+# This file is inert unless that app is installed on the repository; it exists
+# so the About panel can be set without the GitHub web UI.
+repository:
+  description: "Turn any video URL into one agent-friendly JSON file: metadata, chapters and a clean, de-duplicated transcript. Built on yt-dlp, with rate-limit classification, jittered backoff and an incident log. No account, no API key."
+  topics: python, yt-dlp, youtube, transcript, subtitles, metadata, cli, json, ai-agents, llm-tools, rate-limiting, webvtt, video-processing, open-source
