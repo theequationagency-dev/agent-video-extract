@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="video_metadata_extractor — URL in, JSON out. Video metadata and clean transcripts for AI agents." width="100%">
+  <img src="assets/banner.png" alt="agent-video-extract — video metadata and transcripts, resolved into JSON that an agent can read." width="100%">
 </p>
 
 <h1 align="center">video_metadata_extractor</h1>
